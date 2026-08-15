@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <RootNamespace>GycksLab.Mediator</RootNamespace>
+        <Description>
+            A minimal in-process command mediator for .NET. Dispatches ICommand/ICommand&lt;TResult&gt;
+            to handlers resolved from Microsoft.Extensions.DependencyInjection, with handler
+            registration via Scrutor assembly scanning.
+        </Description>
+        <Authors>Gycks</Authors>
+        <RepositoryUrl>https://github.com/Gycks/Mediator</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageId>GycksLab.Mediator</PackageId>
+        <PackageProjectUrl>https://github.com/Gycks/Mediator</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+      <PackageReference Include="Scrutor" Version="7.0.0" />
+      <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(IsPacking)' != 'true'">
+      <ProjectReference Include="..\Extension.Mediator.Abstractions\Extension.Mediator.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(IsPacking)' == 'true'">
+        <PackageReference Include="GycksLab.Mediator.Abstractions" Version="$(DependencyRange)" />
+    </ItemGroup>
+
+</Project>

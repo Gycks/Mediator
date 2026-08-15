@@ -1,0 +1,70 @@
+name: Quality
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches: [ main ]
+
+jobs:
+  run-check:
+    runs-on: ubuntu-latest
+    outputs:
+      run_pipeline: ${{ steps.check.outputs.run_pipeline }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Checking changed files..."
+
+          git fetch origin "${{ github.base_ref }}":"refs/remotes/origin/${{ github.base_ref }}"
+          CHANGED_FILES="$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)"
+
+          echo "Changed files:"
+          printf '%s\n' "$CHANGED_FILES"
+
+          run_pipeline=false
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            case "$file" in
+              docs/*|*.md|*.txt)
+                ;;
+              *)
+                run_pipeline=true
+                break
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          echo "run_pipeline=$run_pipeline" >> "$GITHUB_OUTPUT"
+
+  testing:
+    needs: run-check
+    if: ${{ needs.run-check.outputs.run_pipeline == 'true' }}
+    # No native/platform-specific APIs here (unlike KeychainVault), so ubuntu-latest
+    # is enough and cheaper/faster than macos-latest.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Mediator/Mediator.sln
+
+      - name: Build
+        run: dotnet build Mediator/Mediator.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Mediator/Mediator.sln -c Release --no-build
