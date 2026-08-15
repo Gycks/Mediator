@@ -108,13 +108,13 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore "$MEDIATOR_PROJECT" -p:IsPacking=true -p:DependencyRange="[$VERSION,)"
+        run: dotnet restore "$MEDIATOR_PROJECT" -p:IsPacking=true -p:DependencyRange="$VERSION"
 
       - name: Build Mediator project
-        run: dotnet build "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-restore -p:IsPacking=true -p:DependencyRange="[$VERSION,)"
+        run: dotnet build "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-restore -p:IsPacking=true -p:DependencyRange="$VERSION"
 
       - name: Pack as NuGet
-        run: dotnet pack "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-build -p:PackageVersion="$VERSION" -p:IsPacking=true -p:DependencyRange="[$VERSION,)" --output "$ARTIFACT_DIR"
+        run: dotnet pack "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-build -p:PackageVersion="$VERSION" -p:IsPacking=true -p:DependencyRange="$VERSION" --output "$ARTIFACT_DIR"
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
