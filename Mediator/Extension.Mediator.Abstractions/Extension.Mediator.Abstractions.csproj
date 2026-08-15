@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <RootNamespace>GycksLab.Mediator.Abstractions</RootNamespace>
+        <Description>
+            Contracts (ICommand, ICommand&lt;TResult&gt;, ICommandHandler, IMediator) for GycksLab.Mediator,
+            a minimal in-process command mediator for .NET
+        </Description>
+        <Authors>Gycks</Authors>
+        <RepositoryUrl>https://github.com/Gycks/Mediator</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageId>GycksLab.Mediator.Abstractions</PackageId>
+        <PackageProjectUrl>https://github.com/Gycks/Mediator</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+</Project>

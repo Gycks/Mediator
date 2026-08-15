@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*.*'
+      - '*.*.*'
+
+env:
+  SOLUTION_PATH: Mediator/Mediator.sln
+  ABSTRACTIONS_PROJECT: Mediator/Extension.Mediator.Abstractions/Extension.Mediator.Abstractions.csproj
+  MEDIATOR_PROJECT: Mediator/Extension.Mediator/Extension.Mediator.csproj
+  ARTIFACT_DIR: ./artifacts
+  DOTNET_VERSION: ${{ vars.DOTNET_VERSION }}
+  CONFIGURATION: ${{ vars.CONFIGURATION }}
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  tag-check:
+    runs-on: ubuntu-latest
+    outputs:
+      valid: ${{ steps.check.outputs.valid }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "Tag '$TAG' does not match d.d or d.d.d. Skipping."
+          fi
+
+  testing:
+    needs: tag-check
+    if: ${{ needs.tag-check.outputs.valid == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore "$SOLUTION_PATH"
+
+      - name: Build
+        run: dotnet build "$SOLUTION_PATH" -c "$CONFIGURATION" --no-restore
+
+      - name: Test
+        run: dotnet test "$SOLUTION_PATH" -c "$CONFIGURATION" --no-build
+
+  publish-abstractions:
+    needs: [ tag-check, testing ]
+    if: ${{ needs.tag-check.outputs.valid == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # required for NuGet Trusted Publishing (OIDC token issuance)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore "$ABSTRACTIONS_PROJECT"
+
+      - name: Build Abstractions project
+        run: dotnet build "$ABSTRACTIONS_PROJECT" -c "$CONFIGURATION" --no-restore
+
+      - name: Pack as NuGet
+        run: dotnet pack "$ABSTRACTIONS_PROJECT" -c "$CONFIGURATION" --no-build -p:PackageVersion="$VERSION" --output "$ARTIFACT_DIR"
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push package to NuGet.org
+        run: dotnet nuget push "$ARTIFACT_DIR"/*.nupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  # Waits for Abstractions to actually be live on NuGet.org, since packing this
+  # project with IsPacking=true swaps its ProjectReference for a PackageReference
+  # on that exact version and needs to resolve it.
+  publish-mediator:
+    needs: publish-abstractions
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # required for NuGet Trusted Publishing (OIDC token issuance)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore "$MEDIATOR_PROJECT" -p:IsPacking=true -p:DependencyRange="[$VERSION,)"
+
+      - name: Build Mediator project
+        run: dotnet build "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-restore -p:IsPacking=true -p:DependencyRange="[$VERSION,)"
+
+      - name: Pack as NuGet
+        run: dotnet pack "$MEDIATOR_PROJECT" -c "$CONFIGURATION" --no-build -p:PackageVersion="$VERSION" -p:IsPacking=true -p:DependencyRange="[$VERSION,)" --output "$ARTIFACT_DIR"
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push package to NuGet.org
+        run: dotnet nuget push "$ARTIFACT_DIR"/*.nupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
